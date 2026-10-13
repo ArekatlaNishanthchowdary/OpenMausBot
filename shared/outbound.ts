@@ -140,6 +140,12 @@ export function connectorCallsIn(name: string, args: unknown): ConnectorCall[] {
 }
 
 /** The subset of a request's app tools that would send something. */
+/** A multi-execute call whose tool list connectorCallsIn could not read (it
+ * fell back to the opaque slug with the whole arguments): the call's shape
+ * is the problem, never a missing permission. */
+export const unreadMultiExecute = (name: string, calls: ConnectorCall[], args: unknown): boolean =>
+  name === "COMPOSIO_MULTI_EXECUTE_TOOL" && calls.length === 1 && calls[0]!.slug === "COMPOSIO_PROXY_EXECUTE" && calls[0]!.arguments === args;
+
 export function outboundCallsIn(name: string, args: unknown): ConnectorCall[] {
   return connectorCallsIn(name, args).filter((call) => isOutboundTool(call.slug));
 }

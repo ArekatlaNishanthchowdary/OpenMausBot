@@ -460,7 +460,7 @@ import { TeamMemory, TEAM_MEMORY_KINDS, type TeamMemoryKind } from "./team-memor
 import { describeTool } from "./activity.ts";
 import { OutboundCounts } from "./outbound-counts.ts";
 import { OutboundRequestService } from "./outbound-requests.ts";
-import { DEFAULT_OUTBOUND_POLICY, connectorCallsIn, outboundCallsIn } from "../shared/outbound.ts";
+import { DEFAULT_OUTBOUND_POLICY, connectorCallsIn, outboundCallsIn, unreadMultiExecute } from "../shared/outbound.ts";
 import { connectorAccessDecision, describeConnectorScopes } from "../shared/connector-scopes.ts";
 import { bindThreadLogCapProvider } from "./thread-log-rotation.ts";
 import { listenWebhookIngress, webhookCredential, type WebhookIngress } from "./webhook-ingress.ts";
@@ -20456,6 +20456,12 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
             threadId: internalCapability.threadId, botId: currentSender.id, botName: currentSender.name,
             tool: access.slug, decision: "auto-denied", source: "connector-scope", rule: `scope:${access.toolkit}:${access.reason}`,
           });
+          // A list the relay could not read is refused the same, but said as
+          // what it is: "no access, do not retry" sends the bot after a
+          // permission that is not missing.
+          if (typeof rpcParams?.name === "string" && unreadMultiExecute(rpcParams.name, connectorCalls, rpcParams.arguments)) {
+            return refuseOutbound("OpenMausBot did not run this: it could not read which app tools the call runs. Put them in `tools: [{ tool_slug, arguments }]` and try again.");
+          }
           return refuseOutbound(
             access.reason === "app"
               ? `OpenMausBot did not run this: ${currentSender.name} has not been given access to ${appName}. Ask the user to allow it under the bot's Access settings, and do not retry.`

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { OUTBOUND_DEFAULT_CAP, connectorCallsIn, isOutboundTool, isReadOnlyTool, normalizeOutboundPolicy, outboundCallsIn } from "./outbound.ts";
+import { OUTBOUND_DEFAULT_CAP, connectorCallsIn, isOutboundTool, isReadOnlyTool, normalizeOutboundPolicy, outboundCallsIn, unreadMultiExecute } from "./outbound.ts";
 
 describe("isOutboundTool", () => {
   it("flags tools that send, reply, post, publish, invite, share, or move money", () => {
@@ -122,6 +122,20 @@ describe("connectorCallsIn", () => {
     expect(connectorCallsIn("COMPOSIO_REMOTE_WORKBENCH", { code: 'run_tool("GMAIL_" + "SEND_EMAIL", {})' })[0].slug).toBe("COMPOSIO_PROXY_EXECUTE");
     expect(connectorCallsIn("COMPOSIO_REMOTE_BASH_TOOL", { command: "curl -X POST https://example.test/send" })[0].slug).toBe("COMPOSIO_PROXY_EXECUTE");
     expect(connectorCallsIn("COMPOSIO_PROXY_EXECUTE", {})[0].slug).toBe("COMPOSIO_PROXY_EXECUTE");
+  });
+});
+
+describe("unreadMultiExecute", () => {
+  const unread = (name: string, args: unknown) => unreadMultiExecute(name, connectorCallsIn(name, args), args);
+  it("is a multi-execute call whose tool list could not be read, and nothing else", () => {
+    expect(unread("COMPOSIO_MULTI_EXECUTE_TOOL", { tool_calls: [{ tool_slug: "DISCORDBOT_LIST_GUILD_CHANNELS", arguments: {} }] })).toBe(true);
+    expect(unread("COMPOSIO_MULTI_EXECUTE_TOOL", { tools: "nope" })).toBe(true);
+    expect(unread("COMPOSIO_MULTI_EXECUTE_TOOL", undefined)).toBe(true);
+    expect(unread("COMPOSIO_MULTI_EXECUTE_TOOL", { tools: [{ tool_slug: "DISCORDBOT_LIST_GUILD_CHANNELS", arguments: {} }] })).toBe(false);
+    // a readable list that names the opaque tool is a real access question
+    expect(unread("COMPOSIO_MULTI_EXECUTE_TOOL", { tools: [{ tool_slug: "COMPOSIO_PROXY_EXECUTE", arguments: {} }] })).toBe(false);
+    expect(unread("COMPOSIO_REMOTE_WORKBENCH", { code_to_execute: "x" })).toBe(false);
+    expect(unread("COMPOSIO_PROXY_EXECUTE", {})).toBe(false);
   });
 });
 
