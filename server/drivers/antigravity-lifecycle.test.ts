@@ -86,6 +86,20 @@ afterEach(() => {
 });
 
 describe("Antigravity initialization diagnostics", () => {
+  it.each(["win32", "linux"])("names antivirus scanning only for a silent Windows timeout (%s)", async (platform) => {
+    const original = Object.getOwnPropertyDescriptor(process, "platform")!;
+    Object.defineProperty(process, "platform", { ...original, value: platform });
+    try {
+      fakeChild(null);
+      const result = client().initialize(100).catch((error: Error) => error);
+      await vi.advanceTimersByTimeAsync(100);
+      const error = await result;
+      expect(error.message.includes("antivirus scanning")).toBe(platform === "win32");
+    } finally {
+      Object.defineProperty(process, "platform", original);
+    }
+  });
+
   it("reports a timeout separately from a missing executable without exposing stderr", async () => {
     const child = fakeChild(null);
     const acp = client();
