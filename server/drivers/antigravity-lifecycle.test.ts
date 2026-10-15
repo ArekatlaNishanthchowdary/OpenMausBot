@@ -120,13 +120,13 @@ describe("Antigravity initialization diagnostics", () => {
     acp.close();
   });
 
-  it("keeps the existing 90-second cold-start allowance", async () => {
+  it("keeps the platform's cold-start allowance (90 s, 180 s on Windows)", async () => {
     const child = fakeChild(null);
     const acp = client();
     const result = acp.initialize();
     let settled = false;
     void result.then(() => { settled = true; });
-    await vi.advanceTimersByTimeAsync(89_000);
+    await vi.advanceTimersByTimeAsync((process.platform === "win32" ? 180_000 : 90_000) - 1_000);
     expect(settled).toBe(false);
     child.stdout.write(`${JSON.stringify({ jsonrpc: "2.0", id: 1, result: initialized })}\n`);
     await expect(result).resolves.toEqual(initialized);
